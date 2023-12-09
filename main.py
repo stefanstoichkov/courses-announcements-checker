@@ -6,8 +6,7 @@ import logging
 import atexit
 from bs4 import BeautifulSoup
 from sqlalchemy import Column, Integer, String, DateTime, Text, create_engine, update
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 from requests.exceptions import RequestException
 
