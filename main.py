@@ -9,6 +9,9 @@ from sqlalchemy import Column, Integer, String, DateTime, Text, create_engine, u
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 from requests.exceptions import RequestException
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 log_directory = "logs"
 if not os.path.exists(log_directory):
@@ -73,6 +76,7 @@ def check_if_logged_in(session):
         if soup.find('span', class_="usertext mr-1") is None:
             raise RequestException("Login failed.")
         else:
+            os.system('cls' if os.name == 'nt' else 'clear')
             logging.info("Logged in successfully.")
     except RequestException as e:
         logging.error(f"{e}")
@@ -95,22 +99,41 @@ def update_course(session, short_name, title, message, date):
     session.commit()
 
 
-def get_session():
-    session_file_path = "session.txt"
-    moodle_session_value = ""
+def get_credentials():
+    session_file_path = "credentials.txt"
     try:
         with open(session_file_path, "r") as session_file:
-            moodle_session_value = session_file.read().strip()
+            lines = session_file.readline().strip().split(':')
+            return lines[0], lines[1]
     except FileNotFoundError:
-        logging.error(f"File {session_file_path} not found. Please create the file with MoodleSession value.")
-        sys.exit()
-    finally:
-        return moodle_session_value
+        logging.error(f"File {session_file_path} not found.")
+        return None, None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None, None
+
+
+def get_cookie():
+    options = webdriver.ChromeOptions()
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),
+                              options=options)
+    driver.get('https://cas.finki.ukim.mk/cas/login?service=https%3A%2F%2Fcourses.finki.ukim.mk%2Flogin%2Findex.php')
+
+    username, password = get_credentials()
+    username_input = driver.find_element("id", "username")
+    password_input = driver.find_element("id", "password")
+    username_input.send_keys(username)
+    password_input.send_keys(password)
+    login_button = driver.find_element("name", "submit")
+    login_button.click()
+    driver.implicitly_wait(10)
+    session_cookie = driver.get_cookie('MoodleSession').get('value')
+    return session_cookie
 
 
 def main():
     session = requests.Session()
-    cookies = {'MoodleSession': f"{get_session()}"}
+    cookies = {'MoodleSession': f"{get_cookie()}"}
     session.cookies.update(cookies)
     check_if_logged_in(session)
     sleep_time = 30
